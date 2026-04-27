@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Primitive helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isRole(role) {
+      return isSignedIn() && getUserData(request.auth.uid).role == role;
+    }
+
+    function isAdmin() {
+      return isRole('leader') || isRole('manager');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId &&
+               data.email is string &&
+               data.role in ['leader', 'manager', 'member'] &&
+               data.status in ['online', 'offline', 'busy'] &&
+               (data.displayName == null || data.displayName is string) &&
+               (data.photoURL == null || data.photoURL is string) &&
+               (data.phoneNumber == null || data.phoneNumber is string) &&
+               (data.lastLocation == null || (
+                 data.lastLocation.lat is number &&
+                 data.lastLocation.lng is number &&
+                 data.lastLocation.timestamp is string
+               ));
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
+        // Allow location and status updates
+        incoming().diff(existing()).affectedKeys().hasAny(['lastLocation', 'status', 'displayName', 'photoURL', 'phoneNumber'])
+      ) || (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['role']));
+    }
+
+    // Tasks Collection
+    match /tasks/{taskId} {
+      function isValidTask(data) {
+        return data.title is string && data.title.size() < 200 &&
+               data.assignedTo is string &&
+               data.status in ['todo', 'in-progress', 'completed'];
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidTask(incoming());
+      allow update: if isSignedIn() && (
+        (isOwner(existing().assignedTo) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'completedAt'])) ||
+        (isAdmin() && isValidTask(incoming()))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Inventory Collection
+    match /inventory/{itemId} {
+      function isValidItem(data) {
+        return data.name is string && data.quantity is number;
+      }
+
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidItem(incoming());
+    }
+
+    // Daily Reports Collection
+    match /dailyReports/{reportId} {
+      function isValidReport(data) {
+        return data.userId == request.auth.uid && data.date is string;
+      }
+
+      allow read: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isSignedIn() && isValidReport(incoming());
+    }
+
+    // Chat Rooms Collection
+    match /chatRooms/{roomId} {
+      function isParticipant() {
+        return isSignedIn() && request.auth.uid in resource.data.participants;
+      }
+
+      allow read: if isParticipant() || isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isParticipant() || isAdmin();
+
+      match /messages/{messageId} {
+        function isParticipantOfRoom() {
+          return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(roomId)).data.participants;
+        }
+
+        allow read: if isParticipantOfRoom();
+        allow create: if isParticipantOfRoom() && incoming().senderId == request.auth.uid;
+        allow update: if isParticipantOfRoom() && (
+          incoming().diff(existing()).affectedKeys().hasAny(['reactions', 'readBy', 'isPinned'])
+        );
+      }
+    }
+  }
+}

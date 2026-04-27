@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role and live location",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["leader", "manager", "member"] },
+        "status": { "type": "string", "enum": ["online", "offline", "busy"] },
+        "lastLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        },
+        "phoneNumber": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A daily task assigned to a team member",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "assignedBy": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "in-progress", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "date": { "type": "string", "format": "date" }
+      }
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "Item in the team inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "lastUpdatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DailyReport": {
+      "title": "Daily Report",
+      "description": "End of day summary of work",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "activities": { "type": "string" },
+        "tasksCompleted": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ChatRoom": {
+      "title": "Chat Room",
+      "description": "A conversation between two users or a group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["private", "group"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": {
+          "type": "object",
+          "properties": {
+            "text": { "type": "string" },
+            "senderId": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "An individual message in a chat room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatRoomId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "audio"] },
+        "mediaUrl": { "type": "string" },
+        "reactions": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+        "readBy": { "type": "array", "items": { "type": "string" } },
+        "isPinned": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Team member profiles"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Daily tasks for team members"
+    },
+    "/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Shared team inventory"
+    },
+    "/dailyReports/{reportId}": {
+      "schema": "DailyReport",
+      "description": "End of day work summaries"
+    },
+    "/chatRooms/{roomId}": {
+      "schema": "ChatRoom",
+      "description": "Conversations list"
+    },
+    "/chatRooms/{roomId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages inside a room"
+    }
+  }
+}

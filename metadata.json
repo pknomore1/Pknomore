@@ -1,0 +1,6 @@
+{
+  "name": "TeamPulse",
+  "description": "Real-time team coordination with live location tracking, task management, and inventory logistics.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}
